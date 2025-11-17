@@ -27,7 +27,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def collect_subreddit(subreddit_name: str):
-    print(f"\n📥 Collecting from r/{subreddit_name} ...")
+    print(f"\nCollecting from r/{subreddit_name} ...")
     data = []
     for post in reddit.subreddit(subreddit_name).new(limit=LIMIT_POSTS):
         post.comments.replace_more(limit=0)
@@ -49,10 +49,10 @@ def collect_subreddit(subreddit_name: str):
         for entry in data:
             f.write(json.dumps(entry) + "\n")
 
-    print(f"✅ Saved {len(data)} posts from r/{subreddit_name} → {out_file}")
+    print(f"Saved {len(data)} posts from r/{subreddit_name} → {out_file}")
 
 
 if __name__ == "__main__":
     for sub in SUBREDDITS:
         collect_subreddit(sub)
-    print("\n🎯 All subreddits collected successfully!")
+    print("\nAll subreddits collected successfully!")

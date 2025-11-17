@@ -1,73 +1,63 @@
 """
-clean_text.py
--------------
-Loads raw Reddit post data collected from data/raw/ (via public JSON endpoints),
-cleans and merges it into a single DataFrame, and saves the processed dataset
-to data/processed/cleaned.parquet.
+clean_text.py (fixed)
+Preserves readable Reddit text while removing URLs, emojis, and extra whitespace.
 """
-
-import re
-import json
 import pandas as pd
+import re, json, html
 from pathlib import Path
 
-# Directories
-RAW_DIR = Path("../data/raw")
-OUT_PATH = Path("../data/processed/cleaned.parquet")
+ROOT = Path(__file__).resolve().parents[1]
+RAW_DIR = ROOT / "data" / "raw"
+OUT_PATH = ROOT / "data" / "processed" / "cleaned.parquet"
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# Regex patterns for cleaning
+# Regular expressions
 URL_RE = re.compile(r"https?://\S+|www\.\S+")
-MULTISPACE_RE = re.compile(r"\s+")
+WS_RE = re.compile(r"\s+")
+CTRL_RE = re.compile(r"[\r\n\t]+")
 
-def load_jsonl_files(raw_dir: Path) -> pd.DataFrame:
-    """Load and merge all JSONL subreddit files from data/raw/."""
+def load_jsonl(path):
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+def clean_text(text):
+    """Clean Reddit text while preserving readable content."""
+    text = str(text)
+    text = html.unescape(text)  # decode &amp;, &gt;, etc.
+    text = re.sub(URL_RE, " ", text)
+    text = re.sub(CTRL_RE, " ", text)
+    # Remove only truly non-printable chars (not letters/numbers)
+    text = "".join(ch if ch.isprintable() else " " for ch in text)
+    text = re.sub(WS_RE, " ", text)
+    return text.strip()
+
+def build_dataframe():
     rows = []
-    for file in raw_dir.glob("*.jsonl"):
-        with open(file, "r", encoding="utf-8") as f:
-            for line in f:
-                try:
-                    post = json.loads(line)
-                    text = f"{post.get('title', '')} {post.get('selftext', '')}".strip()
-                    if text:
-                        rows.append({
-                            "id": post.get("id"),
-                            "subreddit": post.get("subreddit"),
-                            "title": post.get("title", ""),
-                            "selftext": post.get("selftext", ""),
-                            "score": post.get("score", 0),
-                            "num_comments": post.get("num_comments", 0),
-                            "created_utc": post.get("created_utc", 0),
-                            "text": text
-                        })
-                except json.JSONDecodeError:
-                    continue
+    for file in RAW_DIR.glob("*.jsonl"):
+        print(f"📂 Processing {file.name}")
+        for post in load_jsonl(file):
+            comments = " ".join(post.get("comments", []))
+            combined_text = f"{post.get('title','')} {post.get('selftext','')} {comments}"
+            cleaned = clean_text(combined_text)
+            if len(cleaned.split()) > 10:
+                rows.append({
+                    "id": post.get("id"),
+                    "subreddit": post.get("subreddit"),
+                    "score": post.get("score", 0),
+                    "num_comments": post.get("num_comments", 0),
+                    "doc_text": cleaned
+                })
     df = pd.DataFrame(rows)
-    print(f"✅ Loaded {len(df)} total posts from {len(list(raw_dir.glob('*.jsonl')))} files.")
+    print(f"Loaded {len(df)} cleaned documents.")
+    df["text_len"] = df["doc_text"].apply(lambda x: len(x.split()))
     return df
-
-
-def clean_text_column(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply basic cleaning (remove URLs, extra spaces, etc.)"""
-    df["text"] = (
-        df["text"]
-        .astype(str)
-        .str.replace(URL_RE, " ", regex=True)
-        .str.replace(MULTISPACE_RE, " ", regex=True)
-        .str.strip()
-    )
-    df["text_len"] = df["text"].apply(lambda x: len(x.split()))
-    df = df[df["text_len"] > 5]  # filter out extremely short entries
-    print(f"✅ Cleaned dataset; remaining posts: {len(df)}")
-    return df
-
-
-def main():
-    df = load_jsonl_files(RAW_DIR)
-    df = clean_text_column(df)
-    df.to_parquet(OUT_PATH, index=False)
-    print(f"💾 Saved cleaned dataset to {OUT_PATH}")
-
 
 if __name__ == "__main__":
-    main()
+    df = build_dataframe()
+    df.to_parquet(OUT_PATH, index=False)
+    print(f"💾 Saved cleaned dataset → {OUT_PATH}")
+    print(df.head(3)[["subreddit", "doc_text"]])

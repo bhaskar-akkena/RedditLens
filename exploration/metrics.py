@@ -21,8 +21,8 @@ from collections import Counter
 sns.set_theme(style="whitegrid", font_scale=0.9)
 plt.rcParams["figure.dpi"] = 150
 
-DATA_PATH = Path("data/processed/cleaned.parquet")
-FIG_DIR = Path("figures")
+DATA_PATH = Path("../../data/processed/cleaned.parquet")
+FIG_DIR = Path("../../figures")
 FIG_DIR.mkdir(exist_ok=True)
 
 df = pd.read_parquet(DATA_PATH)

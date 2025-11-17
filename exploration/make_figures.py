@@ -13,8 +13,8 @@ import re
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # === Setup ===
-DATA_PATH = Path("data/processed/cleaned.parquet")
-FIG_DIR = Path("figures")
+DATA_PATH = Path("../../data/processed/cleaned.parquet")
+FIG_DIR = Path("../../figures")
 FIG_DIR.mkdir(exist_ok=True)
 
 sns.set_theme(style="whitegrid", font_scale=1.0)
@@ -114,6 +114,6 @@ plt.close()
 # ---------------------------------------------------------------------------- #
 # Summary console output
 # ---------------------------------------------------------------------------- #
-print("✅ Figures generated and saved in 'figures/' directory:")
+print("Figures generated and saved in 'figures/' directory:")
 for p in sorted(FIG_DIR.glob("*.png")):
     print("   •", p.name)
